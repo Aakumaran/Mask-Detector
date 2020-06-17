@@ -15,46 +15,37 @@ import os
 import face_recognition
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
-	face_locations = face_recognition.face_locations(frame)
-	image=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-	print('1st'+str(face_locations))
-	(h, w) = frame.shape[:2]
-	blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300),
-		(104.0, 177.0, 123.0))
-
-	# pass the blob through the network and obtain the face detections
-	faceNet.setInput(blob)
-	detections = faceNet.forward()
+    
+	face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
 
 	# initialize our list of faces, their corresponding locations,
 	# and the list of predictions from our face mask network
 	faces = []
 	locs = []
 	preds = []
-
-	for i in range(len(face_locations)):
-		face = frame[face_locations[i][3]:face_locations[i][1], face_locations[i][2]:face_locations[i][0]]
-		if face.size==0:
-			return ( [],[] )
-		face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	temp_faces = face_cascade.detectMultiScale(gray,scaleFactor=1.3,minNeighbors=3,minSize=(30, 30))
+	for (x, y, w, h) in temp_faces:
+		face = frame[y:y+h, x:x+w]
 		face = cv2.resize(face, (224, 224))
 		face = img_to_array(face)
 		face = preprocess_input(face)
 		face = np.expand_dims(face, axis=0)
-		# add the face and bounding boxes to their respective
-		# lists
-		faces.append(face)
-		locs.append(face_locations[i])
-	# only make a predictions if at least one face was detected
-	if len(faces) > 0:
-		# for faster inference we'll make batch predictions on *all*
-		# faces at the same time rather than one-by-one predictions
-		# in the above `for` loop
-		preds = maskNet.predict(faces)
+		preds = maskNet.predict(face)           
+		label = "Mask" if preds[0][0] > 0.3 else "No Mask"
+		color = (0, 255, 0) if preds[0][0] > 0.3 else (0, 0, 255)
 
-	# return a 2-tuple of the face locations and their corresponding
-	# locations
-	return (locs, preds)
+		# include the probability in the label
+		label = "{}: {:.2f}%".format(label, max(preds[0][1], preds[0][0]) * 100)
+
+		# display the label and bounding box rectangle on the output
+		# frame
+		cv2.putText(frame, label, (x, y - 10),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+		cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+	# show the output frame
+	cv2.imshow("Frame", frame)
+	key = cv2.waitKey(1) & 0xFF
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -93,33 +84,7 @@ while True:
 	# detect faces in the frame and determine if they are wearing a
 	# face mask or not
 	if(ret):
-		(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
-
-	# loop over the detected face locations and their corresponding
-	# locations
-	for (box, pred) in zip(locs, preds):
-		# unpack the bounding box and predictions
-		(startX, startY, endX, endY) = box
-		(mask, withoutMask) = pred
-
-		# determine the class label and color we'll use to draw
-		# the bounding box and text
-		label = "Mask" if mask > withoutMask else "No Mask"
-		color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-
-		# include the probability in the label
-		label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
-
-		# display the label and bounding box rectangle on the output
-		# frame
-		cv2.putText(frame, label, (startX, startY - 10),
-			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
-		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-
-
-	# if the `q` key was pressed, break from the loop
-	if key == ord("q"):
-		break
+		detect_and_predict_mask(frame, faceNet, maskNet)
 
 # do a bit of cleanup
 cv2.destroyAllWindows()
