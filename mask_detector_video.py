@@ -14,7 +14,7 @@ import cv2
 import os
 import face_recognition
 
-def detect_and_predict_mask(frame, faceNet, maskNet):
+def detect_and_predict_mask(frame, maskNet):
     
 	face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
 
@@ -32,8 +32,8 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
 		face = preprocess_input(face)
 		face = np.expand_dims(face, axis=0)
 		preds = maskNet.predict(face)           
-		label = "Mask" if preds[0][0] > 0.3 else "No Mask"
-		color = (0, 255, 0) if preds[0][0] > 0.3 else (0, 0, 255)
+		label = "Mask" if preds[0][0] > 0.2 else "No Mask"
+		color = (0, 255, 0) if preds[0][0] > 0.2 else (0, 0, 255)
 
 		# include the probability in the label
 		label = "{}: {:.2f}%".format(label, max(preds[0][1], preds[0][0]) * 100)
@@ -45,7 +45,6 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
 		cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
 	# show the output frame
 	cv2.imshow("Frame", frame)
-	key = cv2.waitKey(1) & 0xFF
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -84,8 +83,11 @@ while True:
 	# detect faces in the frame and determine if they are wearing a
 	# face mask or not
 	if(ret):
-		detect_and_predict_mask(frame, faceNet, maskNet)
+		detect_and_predict_mask(frame, maskNet)
+	if cv2.waitKey(1) & 0xFF == ord('q'):
+		break
 
 # do a bit of cleanup
+out.release()
 cv2.destroyAllWindows()
 vs.stop()
