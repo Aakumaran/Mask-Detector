@@ -32,8 +32,8 @@ def detect_and_predict_mask(frame, maskNet):
 		face = preprocess_input(face)
 		face = np.expand_dims(face, axis=0)
 		preds = maskNet.predict(face)           
-		label = "Mask" if preds[0][0] > 0.2 else "No Mask"
-		color = (0, 255, 0) if preds[0][0] > 0.2 else (0, 0, 255)
+		label = "Mask" if preds[0][0] > preds[0][1] else "No Mask"
+		color = (0, 255, 0) if label = "Mask" else (0, 0, 255)
 
 		# include the probability in the label
 		label = "{}: {:.2f}%".format(label, max(preds[0][1], preds[0][0]) * 100)
@@ -57,13 +57,6 @@ ap.add_argument("-m", "--model", type=str,
 ap.add_argument("-c", "--confidence", type=float, default=0.5,
 	help="minimum probability to filter weak detections")
 args = vars(ap.parse_args())
-
-# load our serialized face detector model from disk
-print("[INFO] loading face detector model...")
-prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
-weightsPath = os.path.sep.join([args["face"],
-	"res10_300x300_ssd_iter_140000.caffemodel"])
-faceNet = cv2.dnn.readNetFromCaffe(prototxtPath, weightsPath)
 
 # load the face mask detector model from disk
 print("[INFO] loading face mask detector model...")
